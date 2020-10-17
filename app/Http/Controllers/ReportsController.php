@@ -12,6 +12,7 @@ use App\Department;
 use App\PublicHolidays;
 use App\Leaves;
 use App\Http\Controllers\HelperController;
+use App\Http\Controllers\ReportsHelperController as RHC;
 
 class ReportsController extends Controller
 {
@@ -67,10 +68,12 @@ class ReportsController extends Controller
     return view('reports.monthlyEmployeeFront')->with([
       'employees' => $employees,
     ]);
+
   }
 
-
   public function monthlyTimeRegister(Request $request){
+
+
 
     $request->date = Carbon::parse($request->date);
     $month = $request->date->month;
@@ -78,12 +81,13 @@ class ReportsController extends Controller
 
     $data = array();
     $totalDays = cal_days_in_month(CAL_GREGORIAN,$month,$year);
-    $employees = Employees::all();
+    $employees = Employees::OrderBy('machine_id','asc')->get();
     foreach($employees as $employee){
       $reqSend = new Request();
       $reqSend->month = $month; $reqSend->year = $year; $reqSend->eid = $employee->id;
+
       $employeeReport = $this->monthlyEmployeeReport($reqSend,0);
-      
+
       $employeeReport['summaryHeadings'] = ['TD','WD','LD','ED','TH','WH','AB','HW','LP','LE','OT','SD','CL','AL'];
       $employeeReport['summaryResults'] = [
         $employeeReport['workSummary']['work_days'],
@@ -103,7 +107,9 @@ class ReportsController extends Controller
       ];
       array_push($data,$employeeReport);
     }
-    // dd($employeeReport);
+
+
+
     return view('reports.monthlyTimeRegister')->with([
       'totalDays' => $totalDays,
       'employeeReports' => $data,
@@ -116,8 +122,7 @@ class ReportsController extends Controller
 
   public function monthlyEmployeeReport(Request $request,$view = 1){
 
-    //handling different types of date inputs
-    if(isset($request->date)){
+    if(isset($request->date)){    //handling different types of date inputs
       $request->date = Carbon::parse($request->date);
       $month = $request->date->month;
       $year = $request->date->year;
@@ -126,115 +131,74 @@ class ReportsController extends Controller
       $year = $request->year;
     }
 
-    //getting employee id
-    $e_id = $request->eid;
 
-    //find employee
-    $employee = Employees::findOrFail($e_id);
-
+    $e_id = $request->eid;  //getting employee id
+    $employee = Employees::findOrFail($e_id); //find employee
+    $RHC = new RHC($month,$year,$employee); // Report Helper
     $employee = $employee->toArray();
+    $employee['department'] = (Department::findOrFail($employee['department'])->toArray())['name']; //get department name for view
 
-    //get department name for view
-    $employee['department'] = (Department::findOrFail($employee['department'])->toArray())['name'];
-
-
-    //creating return result arrays dummy
-    $workSummary = array(
-      'work_days' => 0,
-      'worked_days' => 0,
-      'worked_hours' => 0,
-      'working_hours' => 0,
-      'short_duty_hours' => 0,
-    );
-    $leSummary = array(
-      'late_days' => 0,
-      'early_days' => 0,
-      'late_hours' => 0,
-      'early_hours' => 0,
-    );
-    $extraSummary = array(
-      'absent' => 0,
-      'holiday' => 0,
-      'overtime' => 0,
-    );
-
-    $leavesSummary = array(
-      'casual_leaves' => 0,
-      'annual_leaves' => 0,
-    );
-
-    //main data
-    $rows = array();
-
-    //starting loop of whole month
     $date = Carbon::parse('1-'.$month.'-'.$year);
+    $lastDay = $date->daysInMonth;
+    //creating return result arrays dummy
+    $rows = array();  //main data
 
-    $loopIndex = 0;
+    $loopIndex = 0; $sandwich = 0;
 
-    //loop start
-    while($date->month == $month){
+    while($date->month == $month){  //starting loop of whole month
 
       //If date is not before employee join date
       if($date >= Carbon::parse($employee['join_date']) ){
 
-        $publicHoliday = PublicHolidays::whereDate('date','=',$date)->get(); //getting public holidays of this date
-        if($date->dayOfWeek != 0){
-          if($publicHoliday->count() == 0){
-            //if it is not sunday and not a public holiday then increase work days
-            $workSummary['work_days']++;
-          }
-        }
 
-        //single row to be appended
-        $row = array();
-
-        //date for view
-        $rowDate = (explode(' ',$date->toDateTimeString()))[0];
+        $row = array(); //single row to be appended
+        $rowDate = (explode(' ',$date->toDateTimeString()))[0]; //date for view
         $row['date'] = $date->day.'-'.$date->month.'-'.$date->year.' ('.HelperController::dayOfWeek($date->dayOfWeek).')';
-
-        //fetching attendance of emp[e_id][date]
-
         $dateStr = $date->toDateString();
-        $nextDay = Carbon::parse($dateStr)->addDays(1)->toDateString();
 
-        $fetchAttendance = Attendance::where('employee_id','=',$e_id)->where('time','>=',Carbon::parse($dateStr.' 0731'))->where('time','<',Carbon::parse($nextDay.' 0730'))->orderBy('time','asc')->get();
+        // $nextDay = Carbon::parse($dateStr)->addDays(1)->toDateString();
 
-        //fetching roster
         $fetchRoster = $this->fetchRoster($date,$e_id);
+        if($fetchRoster != null ){
+          $shiftDetails = RosterShifts::find($fetchRoster->roster_shift_id);
 
-        //if roster is not null for today then getting shift timings and setting lunch duration , also adding to working hours
+          $fetchAttendance = Attendance::where('employee_id','=',$e_id)->where('time','>=',Carbon::parse($dateStr.$shiftDetails->day_start))->where('time','<',Carbon::parse($dateStr.$shiftDetails->day_start)->addHours(23)->addMinutes(59))->orderBy('time','asc')->get();
+        }else{
+          $fetchAttendance = []; $shiftDetails = null;
+        }
+        $lunch_duration = 0; //default (for later)
+
+        if(!$RHC->isHoliday($date)){
+
+          $RHC->workSummary['work_days']++; //if it is not sunday and not a public holiday then increase work days
+        }else{
+
+          $row['holiday'] = 'Holiday';
+
+
+        }
+        // getting shifting timings with lunch timings adjusted + adding to working hours
         if($fetchRoster!= null){
-          //getting shift details
-          $shiftDetails = RosterShifts::findOrFail($fetchRoster->roster_shift_id);
 
-          if($date->dayOfWeek == 0){
+
+          if($date->dayOfWeek == 0 && $shiftDetails->sunday_start_time != null && $shiftDetails->sunday_shift_duration != null){
             $shiftStarting = Carbon::parse($rowDate.' '.$shiftDetails->sunday_start_time);
             $shiftEnding = Carbon::parse($rowDate.' '.$shiftDetails->sunday_start_time)->addHours($shiftDetails->sunday_shift_duration)->addMinutes(60*($shiftDetails->sunday_shift_duration - floor($shiftDetails->sunday_shift_duration)));
-
+            $lunch_duration = $shiftDetails->sunday_lunch_duration;
           }else{
             $shiftStarting = Carbon::parse($rowDate.' '.$shiftDetails->start_time);
             $addMinutes = floor(60*($shiftDetails->shift_duration - floor($shiftDetails->shift_duration)));
             $shiftEnding = Carbon::parse($rowDate.' '.$shiftDetails->start_time)->addHours( floor($shiftDetails->shift_duration) )->addMinutes($addMinutes);
-
-          }
-
-          if($date->dayOfWeek != 0){
             $lunch_duration = $shiftDetails->lunch_duration;
-            if($publicHoliday->count() == 0){
+            if(!$RHC->isHoliday($date)){
               $shiftDuration = ($shiftEnding->diffInSeconds($shiftStarting))/3600;
-              $workSummary['working_hours'] += ($shiftDuration-$lunch_duration);
+              $RHC->workSummary['working_hours'] += ($shiftDuration-$lunch_duration);
             }
-          }else{
-            $lunch_duration = $shiftDetails->sunday_lunch_duration;
           }
-
-        }else{
-          //if no roster found then lunch duration to add is 0
-          $lunch_duration = 0;
         }
 
-        //if attendance of in and out both is marked
-        if(count($fetchAttendance) >= 2){
+
+        if(count($fetchAttendance) >= 2){ //if attendance of in and out both is marked
 
           $fetchAttendance = $fetchAttendance->toArray();
           $inAttendance = $fetchAttendance[0];
@@ -242,68 +206,54 @@ class ReportsController extends Controller
 
           $row['in_time'] = explode(':',explode(' ',Carbon::parse($inAttendance['time'])->toDateTimeString())[1]);
           $row['in_time'] = $row['in_time'][0].':'.$row['in_time'][1];
-
           $row['out_time'] = explode(':',explode(' ', Carbon::parse($outAttendance['time'])->toDateTimeString() )[1]);
-
           $row['out_time'] = $row['out_time'][0].':'.$row['out_time'][1];
-
           $outTime = Carbon::parse($outAttendance['time']);
           $inTime = Carbon::parse($inAttendance['time']);
 
-          $lunchStartTime = Carbon::parse($rowDate.' 14:00:00');
-          $lunchEndTime = Carbon::parse($rowDate.' 14:00:00')->addHours($lunch_duration);
-
+          $lunchStartTime = Carbon::parse($rowDate.' 13:00:00');
+          $lunchEndTime = Carbon::parse($rowDate.' 13:00:00')->addHours($lunch_duration);
+          //echo $date.' ';
           if($outTime > $inTime){
             $row['worked_hours'] = $outTime->diffInSeconds($inTime);
+            //echo 'Out - in: '.$row['worked_hours'].' ';
             if($inTime > $lunchStartTime && $inTime < $lunchEndTime){
               $row['worked_hours'] -= ($lunchEndTime->diffInSeconds($inTime));
+              //echo ' lunchtime: '.($lunchEndTime->diffInSeconds($inTime)).' ';
             }else if($inTime < $lunchStartTime){
               $row['worked_hours'] -= ($lunch_duration*3600);
+              //echo ' lunchtime: '.($lunch_duration*3600).' ';
             }
-            $workSummary['worked_hours'] += $row['worked_hours'];
+            //echo $row['worked_hours'].' ';
+            $RHC->workSummary['worked_hours'] += $row['worked_hours'];
           }else {
             $row['worked_hours'] = 0;
           }
-
+          //echo '<br>';
 
           if($fetchRoster != null){
 
-            if($date->dayOfWeek == 0){
-              $row['holiday'] = 'Sunday';
-
-              $extraSummary['holiday']++;
-            }
-            $workSummary['worked_days']++;
-
+            $RHC->workSummary['worked_days']++;
             $row['status'] = 'Present';
-
-
-
-
-            if($shiftStarting > $inTime){
-              $row['worked_hours'] = $outTime->diffInSeconds($shiftStarting);
-              $workSummary['worked_hours'] += $row['worked_hours'];
-            }
-
-
+            // if($shiftStarting > $inTime){
+            //   $row['worked_hours'] = $outTime->diffInSeconds($shiftStarting);
+            //   $RHC->workSummary['worked_hours'] += $row['worked_hours'];
+            // }
             $row['shift'] = $shiftDetails->name.' '.(explode(':',(explode(' ',$shiftStarting->toDateTimeString())[1])))[0].':'.(explode(':',(explode(' ',$shiftStarting->toDateTimeString())[1])))[1].' - '.(explode(':',(explode(' ',$shiftEnding->toDateTimeString())[1])))[0].':'.(explode(':',(explode(' ',$shiftEnding->toDateTimeString())[1])))[1];
-
-
 
             if($outTime >= $shiftEnding){
               $overtime = $outTime->diffInSeconds($shiftEnding);
+
               if($date->dayOfWeek == 0){
                 $minimumOvertime = ($shiftDetails->sunday_overtime_start_time)*60*60;
               }else{
                 $minimumOvertime = ($shiftDetails->overtime_start_time)*60*60;
               }
-
-
               if($overtime > $minimumOvertime){
                 $row['ot'] = $overtime;
-                $extraSummary['overtime'] += $overtime;
-              }else{
 
+                $RHC->extraSummary['overtime'] += $overtime;
+              }else{
                 $row['ot'] = 0;
               }
             }else{
@@ -321,9 +271,9 @@ class ReportsController extends Controller
               }
 
               if($lateHours > $minimumLate){
-                $leSummary['late_days']++;
+                $RHC->leSummary['late_days']++;
                 $row['late_hrs'] = $lateHours;
-                $leSummary['late_hours'] += ($lateHours);
+                $RHC->leSummary['late_hours'] += ($lateHours);
                 $row['status'] = '<span style="color:#2980b9;">Late</span>';
               }else{
                 $row['late_hrs'] = 0;
@@ -341,9 +291,9 @@ class ReportsController extends Controller
               }
 
               if($earlyHrs > $minimumEarly){
-                $leSummary['early_days']++;
+                $RHC->leSummary['early_days']++;
                 $row['early_hrs'] = $earlyHrs;
-                $leSummary['early_hours'] += $earlyHrs;
+                $RHC->leSummary['early_hours'] += $earlyHrs;
 
                 if (strpos($row['status'], 'Late') !== false) {
                   $row['status'] = '<span style="color:#2980b9;">Late/Early</span>';
@@ -364,36 +314,62 @@ class ReportsController extends Controller
 
         }else{
 
-          if($date->dayOfWeek != 0){
-            $extraSummary['absent']++;
-            $row['status'] = '<span style="color:#c0392b;">Absent</span>';
+
+
+          if(!$RHC->isHoliday($date)){
+            $RHC->extraSummary['absent']++;
+            $row['status'] = '<span style="color:#c0392b;">Absento</span>';
           }else{
             $row['status'] = '<span style="color:#27ae60;">(Sunday)</span>';
           }
-
-          if($date->dayOfWeek == 1 && $loopIndex >= 2){
-            if(strpos($rows[$loopIndex-2]['status'], 'Absent') !== false && $rows[$loopIndex-1]['in_time'] == '' && $rows[$loopIndex-1]['out_time'] == '' ){
-              $extraSummary['absent']++;
-              $rows[$loopIndex-1]['status'] = '<span style="color:#27ae60;">(Sunday)</span><span style="color:#c0392b;"> Absent</span>';
-            }
-          }
-
 
           $row['worked_hours'] = $row['in_time'] = $row['out_time'] = $row['shift'] = $row['ot'] = $row['late_hrs'] = $row['early_hrs'] = '';
 
         }
         //if condition of check attendance count is ended
 
-        //checking holiday and showing status accordingly
-        if(count($publicHoliday)>0){
-          $publicHoliday = ($publicHoliday[0])->toArray();
-          if(strpos($row['status'],'Absent') !== false ) {
-            $extraSummary['absent']--;
-            $append = '';
-          }else if(strpos($row['status'],'Sunday') == false){
-            $extraSummary['holiday']++;
-            //dd($date);
+        //holidays worked + sandwich rule start
+        $applySandwich = 0;
+        if($RHC->isHoliday($date) ){
+          // dd('here'.$date.' '.strlen($row['in_time']).' '.strlen($row['out_time']));
+          if( strlen($row['in_time'])>0 && strlen($row['out_time'])>0 ){
+            $RHC->extraSummary['holiday']++;
+          }else if($sandwich > 0){
+            $sandwich++;
+            if($date->day == $lastDay){
+              $applySandwich = 1;
+              $row['status'] = '<span style="color:#c0392b;">Absent(Sandwiched)</span>';
+            }
+          }else if($date->day == 1 || strpos( $rows[$loopIndex-1]['status'],'Absent') !== false ){
 
+            $sandwich = 1;
+          }
+
+        }else if($sandwich > 0 && strpos($row['status'],'Absent') !== false){
+          $applySandwich = 1;
+
+        }else if($sandwich > 0){
+          $sandwich = 0;
+        }
+        if($applySandwich){
+
+          for($i=$loopIndex-$sandwich;$i<$loopIndex;$i++){
+
+            $RHC->extraSummary['absent']++;
+            $rows[$i]['status'] = '<span style="color:#c0392b;">Absent(Sandwiched)</span>';
+          }
+          $applySandwich = 0;
+          $sandwich = 0;
+        }
+        //end
+        //checking holiday and showing status accordingly
+        if($RHC->isHoliday($date,0)){
+          $publicHoliday = $RHC->getHoliday($date);
+          if(strpos($row['status'],'Absent') !== false && strpos($row['status'],'Sandwiched') == false ) {
+
+            $RHC->extraSummary['absent']--;
+            $append = '';
+          }else{
             $append = $row['status'];
           }
           $row['status'] = '<span style="color:#27ae60">('.$publicHoliday['title'].')</span>'.$append;
@@ -403,18 +379,18 @@ class ReportsController extends Controller
           $leave = Leaves::whereDate('start_date','<=',$date)->whereDate('end_date','>=',$date)->where('emp_id','=',$e_id)->get();
           foreach($leave as $leaveRow){
             if($leave->type='Casual'){
-              $leavesSummary['casual_leaves']++;
+              $RHC->leavesSummary['casual_leaves']++;
             }else{
-              $leavesSummary['annual_leaves']++;
+              $RHC->leavesSummary['annual_leaves']++;
             }
           }
           if(count($leave)>0){
             $leave = ($leave[0])->toArray();
             if(strpos($row['status'],'Absent') !== false){
-              $extraSummary['absent']--;
+
+              $RHC->extraSummary['absent']--;
               $append = '';
             }else{
-              $extraSummary['holiday']++;
 
               $append = $row['status'];
             }
@@ -424,41 +400,41 @@ class ReportsController extends Controller
         //holiday checking end
 
         array_push($rows,$row);
-      }else{
-        //before join date employee showed as absent
+      }else{  //before join date employee showed as absent
         $row = array();
         $row['date'] = $date->day.'-'.$date->month.'-'.$date->year.' ('.HelperController::dayOfWeek($date->dayOfWeek).')';
         $row['worked_hours'] = $row['in_time'] = $row['out_time'] = $row['shift'] = $row['ot'] = $row['late_hrs'] = $row['early_hrs'] = '';
         $row['status'] = '<span style="color:#c0392b;"> Absent</span>';
         array_push($rows,$row);
-        $extraSummary['absent']++;
+        $RHC->extraSummary['absent']++;
       }
 
       $date->addDays(1);
       $loopIndex++;
+
     }
     //loop end
 
-    if($workSummary['worked_hours'] > $workSummary['working_hours']){
-      //dd($workSummary['worked_hours'],)
-      $workSummary['short_duty_hours'] = 0;
+
+    if( ($RHC->workSummary['worked_hours'])/3600 > $RHC->workSummary['working_hours']){ //calculating short duty hours
+
+      $RHC->workSummary['short_duty_hours'] = 0;
     }else{
-      $workSummary['short_duty_hours'] = $workSummary['working_hours']-$workSummary['worked_hours'];
+      $RHC->workSummary['short_duty_hours'] = floor($RHC->workSummary['working_hours'] - ($RHC->workSummary['worked_hours'])/3600);
     }
 
-    $withData = [
+    // dd();
+    $withData = [   //preparing data
       'rows' => $rows,
       'employee' => $employee,
-      'workSummary' => $workSummary,
-      'leSummary' => $leSummary,
-      'extraSummary' => $extraSummary,
-      'leavesSummary' => $leavesSummary,
+      'workSummary' => $RHC->workSummary,
+      'leSummary' => $RHC->leSummary,
+      'extraSummary' => $RHC->extraSummary,
+      'leavesSummary' => $RHC->leavesSummary,
     ];
-
-    if($view == 0){
+    if($view == 0){   //only data scene?
       return $withData;
     }
-
     return view('reports.monthlyEmployee')->with($withData);
   }
 
@@ -479,7 +455,10 @@ class ReportsController extends Controller
     $workStart = $date->copy()->addHours(8);
     $workEnd = $workStart->copy()->addHours(23)->addMinutes(59);
 
-    $dataFetch = Attendance::select(['attendance.id as id','attendance.time','employees.full_name','attendance.employee_id'])->join('employees','employees.id','=','attendance.employee_id')->where('attendance.time','>=',$workStart)->where('attendance.time','<=',$workEnd)->get();
+    $dataFetch = Attendance::select(['attendance.id as id','attendance.time','employees.full_name','attendance.employee_id'])
+    ->join('employees','employees.id','=','attendance.employee_id')
+    ->where('attendance.time','>=',$workStart)
+    ->where('attendance.time','<=',$workEnd)->get();
 
     foreach($dataFetch as $fetchData){//foreach attendance entry
 

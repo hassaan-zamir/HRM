@@ -1,0 +1,19 @@
+<section class="container py-5">
+  @if( $get['sec'] != "" )
+  {!!  !!}
+  @elseif( $get['iid'] != "" )
+{!! str_replace("Original Article", "Original Research (Original Article)", file_get_contents("https://www.ejmanager.com/index_myjournal.php?jid=" . $config['jid'] . "&iid=" .  $get['iid'] . "&target=local")) !!}
+  @elseif( $get['nid'] != "" )
+  {!! file_get_contents("https://www.ejmanager.com/index_myjournal.php?jid=" . $config['jid'] . "&nid=" .  $get['nid']) !!}
+  @elseif( $get['term'] != "")
+
+  @elseif( $get['mno'] != "" &&  $get['html'] != "" )
+  @include('pages.fulltext')
+  @elseif( $get['mno'] != "" )
+  @include('pages.docs')
+  @else
+  {!! trim(file_get_contents("https://www.ejmanager.com/index_myjournal.php?jid=" . $config['jid'] . "&sec=aimsscope")) !!}
+  {!! "<h3>" . $config['gciss'] . "</h3>" !!}
+  {!! str_replace("Original Article", "Original Research (Original Article)", file_get_contents("https://www.ejmanager.com/index_myjournal.php?jid=" . $config['jid'] . "&sec=cissue")) !!}
+  @endif
+</section>

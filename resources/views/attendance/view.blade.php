@@ -43,7 +43,7 @@
                 <th scope="col">Name</th>
                 <th scope="col">Department</th>
                 <th scope="col">In-time</th>
-                <th scope="col">Worked-Duration</th>
+                <th scope="col">Out-Time</th>
                 <th scope="col">Calculated Overtime</th>
                 <th scope="col">Manual Overtime</th>
                 <th scope="col"></th>
@@ -55,12 +55,12 @@
               <?php $i++; ?>
               <tr>
                 <td>
-                  @if($row['e_code']<10)
-                  Emp-00{{ $row['e_code'] }}
-                  @elseif($row['e_code']<100)
-                  Emp-0{{ $row['e_code'] }}
+                  @if($row['machineId']<10)
+                  Emp-00{{ $row['machineId'] }}
+                  @elseif($row['machineId']<100)
+                  Emp-0{{ $row['machineId'] }}
                   @else
-                  Emp-{{ $row['e_code'] }}
+                  Emp-{{ $row['machineId'] }}
                   @endif
                 </td>
                 <td class="editable">
@@ -73,29 +73,30 @@
                   <span class="txt" row="{{ $row['e_code'] }}" label="department">{{ $row['department'] }}</span>
                   <span class="editField" style="display:none;">
                     <input type="text" class="form-control editableInp" value="{{ $row['department'] }}" row="{{ $row['e_code'] }}" label="department">
+                    <input type="hidden" row="{{ $row['e_code'] }}" label="dayStart" value="{{ $row['shift_details']['day_start'] }}" />
                   </span>
                 </td>
                 <td class="editable" >
                   <span class="txt" row="{{ $row['e_code'] }}" label="in_time">
                     @if($row['in_time'] != null )
-                    {{ \App\Http\Controllers\HelperController::carbonToTime($row['in_time']) }}
+                    {{ \App\Http\Controllers\HelperController::carbonToTime($row['in_time'],'') }}
                     @endif
                   </span>
                   <span class="editField" style="display:none;">
-                    <input type="text" class="editableInp" placeholder="e.g; 0900 or 09:00" value="@if($row['in_time']){{ \App\Http\Controllers\HelperController::carbonToTime($row['in_time'],'') }}@endif" in_time_id="@if($row['in_time_id']){{ $row['in_time_id'] }}@endif" step="1" row="{{ $row['e_code'] }}" label="in_time">
-                    
+                    <input type="text" class="editableInp" placeholder="e.g 0900" {{ ($row['shift_details']==null)?'disabled="disabled"':'' }} value="{{ \App\Http\Controllers\HelperController::carbonToTime($row['in_time'],'') }}"   row="{{ $row['e_code'] }}" label="in_time" antilabel="worked_duration">
+
                     <span class="error-box" style="color:red;">
                     </span>
                   </span>
                 </td>
                 <td class="editable" >
                   <span class="txt" row="{{ $row['e_code'] }}" label="worked_duration">
-                    @if($row['worked_duration'] != null)
-                    {{ \App\Http\Controllers\HelperController::secondsToClock($row['worked_duration']) }}
+                    @if($row['out_time'] != null)
+                    {{ \App\Http\Controllers\HelperController::carbonToTime($row['out_time'],'') }}
                     @endif
                   </span>
                   <span class="editField" style="display:none;">
-                    <input type="text" class="editableInp" placeholder="e.g; 0900 or 09:00" value="@if($row['worked_duration']){{ \App\Http\Controllers\HelperController::secondsToClock($row['worked_duration'],'') }}@endif" out_time_id="@if($row['out_time_id']){{ $row['out_time_id'] }}@endif" step="1" row="{{ $row['e_code'] }}" label="worked_duration">
+                    <input type="text"  placeholder="e.g 0900" {{ ($row['shift_details']==null)?'disabled="disabled"':'' }} class="editableInp" value="@if($row['worked_duration'] && $row['in_time']){{ \App\Http\Controllers\HelperController::carbonToTime($row['in_time']->copy()->addSeconds($row['worked_duration']),'') }}@endif"  row="{{ $row['e_code'] }}" label="worked_duration" antilabel="in_time" >
 
                     <span class="error-box" style="color:red;">
 
@@ -144,7 +145,7 @@
 <script src="//cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
 <script>
 
-let changes = []; 
+let changes = [];
 
 $(document).ready(function() {
 
@@ -178,22 +179,25 @@ $(document).ready(function() {
     $(this).next('.error-box').html('');
     var allGood = 1;
     var label = $(this).attr('label');
+    var antilabel = $(this).attr('antilabel');
     var e_code = $(this).attr('row');
     var val = $(this).val();
+    let antival;
     var date = $('#date').val();
     if(date!= undefined || date!="" || date!=null){
-        
-      var addIdCheck = 0;
-      var addIdLabel = "out_time_id";
+
+
       if(label=="in_time" || label == "worked_duration"){
-        
-        if(label == "in_time"){ addIdLabel = "in_time_id"; }
-        addIdCheck = $(this).attr(addIdLabel);
-        if(RegExp("^(?:[0-2])?[0-9](?::)?[0-6][0-9]$").test(val)){
-          var html = $('.txt[label="'+label+'"][row="'+e_code+'"]').html();
+
+
+        antival = $('.editableInp[label="'+antilabel+'"][row="'+e_code+'"]').val();
+        if(RegExp("^[0-2][0-9][0-6][0-9]$").test(val) || val == "0000"){
+
           $('.txt[label="'+label+'"][row="'+e_code+'"]').html(val);
+
         }else{
-          $(this).next('.error-box').html('Format must must match 0900 or 09:00');
+          console.log(val);
+          $(this).next('.error-box').html('format not matched');
           allGood = 0;
         }
 
@@ -220,14 +224,17 @@ $(document).ready(function() {
 
 
       if(allGood){
+
         var existCheck = 0;
         var i;
         for(i=0;i<changes.length;i++){
           var item = changes[i];
           if(item['e_code'] == e_code){
             item[label] = val;
+            if(antival.length == 4 || antival.length == 0){
+              item[antilabel] = antival;
+            }
             item['date'] = date;
-            item[addIdLabel] = addIdCheck;
             existCheck = 1;
           }
 
@@ -238,11 +245,17 @@ $(document).ready(function() {
           append['e_code'] = e_code;
           append['date'] = date;
           append[label] = val;
-          append[addIdLabel] = addIdCheck;
+          if(antival.length == 4 || antival.length == 0){
+            append[antilabel] = antival;
+          }
+          append['dayStart'] = $('input[label="dayStart"][row="'+e_code+'"]').val();
           changes.push(append);
         }
         console.log(changes);
+      }else{
+        $('.txt[label="'+label+'"][row="'+e_code+'"]').html('');
       }
+
     }
 
   });

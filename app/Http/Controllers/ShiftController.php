@@ -27,10 +27,13 @@ class ShiftController extends Controller
   private function createShiftRow(ShiftRequest $request){
     $start_time = new \DateTime();
     $start_time->setTime($request->start_time_hr,$request->start_time_min)->format('H:i:s');
+    $dayStartTime = new \DateTime();
+    $dayStartTime->setTime($request->day_start_hr,$request->day_start_min)->format('H:i:s');
     $reqArr = [
       'name' => $request->name,
       'user_id' => $request->user_id,
       'description' => $request->description,
+      'day_start' => $dayStartTime,
       'start_time' => $start_time,
       'shift_duration' => ($request->duration_hour+($request->duration_mins/60)),
       'lunch_duration' => ($request->lunch_duration_hour+($request->lunch_duration_mins/60)),

@@ -25,7 +25,7 @@
             <div class="alert alert-danger" role="alert">
               <ul>
                 @foreach($errors->all() as $error)
-                  <li>{{ $error }}</li>
+                <li>{{ $error }}</li>
                 @endforeach
               </ul>
             </div>
@@ -54,6 +54,50 @@
                 </span>
                 @endif
               </div>
+
+
+              <div class="form-group{{ $errors->has('day_start_hr','day_start_min') ? ' has-danger' : '' }}">
+                <label class="form-control-label" for="input-start_time">{{ __('Shift Day Starting Time') }}</label>
+                <div class="row">
+                  <div class="col-md-4">
+                    <select name="day_start_hr" class="form-control form-control-alternative{{ $errors->has('day_start_hr') ? ' is-invalid' : '' }}">
+                      @for($i=1;$i<=24;$i++)
+                      <option value="{{ $i }}" {{ ($i==8)?'selected="selected"':'' }}>{{ $i }}</option>
+                      @endfor
+                    </select>
+                  </div>
+                  <span style="margin-top:8px;">:</span>
+                  <div class="col-md-6">
+                    <select name="day_start_min" class="form-control form-control-alternative{{ $errors->has('day_start_min') ? ' is-invalid' : '' }}">
+                      @for($i=0;$i<=60;$i++)
+                      <option value="{{ $i }}" {{ ($i==0)?'selected:"selected"':''}} >
+                        @if($i < 10)
+                        0{{ $i }}
+                        @else
+                        {{ $i }}
+                        @endif
+
+                      </option>
+                      @endfor
+                    </select>
+                  </div>
+
+
+                  @if ($errors->has('start_time_hr'))
+                  <span class="invalid-feedback" role="alert">
+                    <strong>{{ $errors->first('start_time') }}</strong>
+                  </span>
+                  @endif
+
+                  @if ($errors->has('start_time_min'))
+                  <span class="invalid-feedback" role="alert">
+                    <strong>{{ $errors->first('start_time_min') }}</strong>
+                  </span>
+                  @endif
+                </div>
+              </div>
+
+
 
               <div class="form-group{{ $errors->has('start_time_hr','start_time_min') ? ' has-danger' : '' }}">
                 <label class="form-control-label" for="input-start_time">{{ __('Shift Starting Time') }}</label>
@@ -212,7 +256,7 @@
                   </div>
                 </div>
                 <div class="row furtherOptions" style="display:none;">
-                   <input type="radio" name="sunday_check" value="0" style="display:none;" checked="checked"/>
+                  <input type="radio" name="sunday_check" value="0" style="display:none;" checked="checked"/>
                   <div class="col-md-3">
                     <input type="radio" name="sunday_check" value="1" /> Holiday with same timings
                   </div>

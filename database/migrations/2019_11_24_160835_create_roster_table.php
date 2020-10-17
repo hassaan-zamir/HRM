@@ -18,8 +18,7 @@ class CreateRosterTable extends Migration
             $table->integer('user_id');
             $table->DateTime('start');
             $table->DateTime('end');
-            $table->text('dep_id');
-            $table->text('employee_id');
+            $table->integer('employee_id');
             $table->integer('roster_shift_id');
             $table->timestamps();
         });

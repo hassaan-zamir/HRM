@@ -44,7 +44,7 @@
           </div>
         </div>
 
-        <div id="dp" class="row" style="margin-top:20px;padding-bottom:20px;">
+        <div id="dp" class="row table-responsive" style="margin-top:20px;padding-bottom:20px;">
 
         </div>
         <!--Calendar End-->
@@ -144,89 +144,24 @@
 $(document).ready(function(){
 
 
-  // scheduler.init("scheduler_here");
-  // scheduler.load("/loadRoster", "json");
-  let week = ['Sun','Mon','Tue','Wed','Thur','Fri','Sat'];
-  let rosterResources;
-  let rosterEvents;
-  let dp;
+  function loadRoster(date = 1){
+    $.ajax({
+      url: "/loadRoster",
+      type: "GET",
+      data: { "date":date },
+      success: function(result){
 
-  $.ajax({
-    url: "/rosterResources",
-    type: "GET",
-    dataType: "json",
-    success: function(result){
+        console.log(result);
+        $('#dp').html(result);
 
-      rosterResources = result;
+      }
+    });
+  }
 
-      $.ajax({
-        url: "/loadRoster",
-        type: "GET",
-        dataType: "json",
-        success: function(result2){
-
-          rosterEvents = result2;
-
-          dp = new DayPilot.Scheduler("dp", {
-            timeHeaders: [{"groupBy":"Month"},{"groupBy":"Day","format":"d"}],
-            onBeforeTimeHeaderRender: function(args) {
-              if (args.header.level === 1) {
-                var dayOfWeek = args.header.start.getDayOfWeek();
-                if (dayOfWeek === 0) {
-                  args.header.backColor = "#2ecc71";
-                  args.header.cssClass = "sunday";
-                }
-                args.header.html += ' -'+week[dayOfWeek]+' ';
-              }
-            },
-            scale: "Day",
-            days: DayPilot.Date.today().daysInMonth(),
-            startDate: DayPilot.Date.today().firstDayOfMonth(),
-            endDate: DayPilot.Date.today().lastDayOfMonth(),
-            timeRangeSelectedHandling: "Enabled",
-
-            eventDeleteHandling: "Update",
-            onEventDeleted: function (args) {
-              this.message("Event deleted: " + args.e.text());
-            },
-
-            eventHoverHandling: "Bubble",
-            bubble: new DayPilot.Bubble({
-              onLoad: function(args) {
-                // if event object doesn't specify "bubbleHtml" property
-                // this onLoad handler will be called to provide the bubble HTML
-                args.html = "Event details";
-              }
-            }),
-            treeEnabled: true,
-            changeMonth: function(startDate,lastDate){
-
-              $(this)[0].update({
-                startDate: startDate,
-                endDate: lastDate,
-              });
-              $('.scheduler_default_corner_inner').next('div').hide();
-            },
-
-          });
-
-          dp.resources = rosterResources;
-          dp.events.list = rosterEvents;
-          dp.init();
-          $('.scheduler_default_corner_inner').next('div').hide();
-
-        }
-      });
-
-    }
-  });
-
+  loadRoster();
   $('#chooseMonth').change(function(){
+    loadRoster($(this).val());
 
-    var date = new Date($(this).val());
-    var firstDay = new Date(date.getFullYear(), date.getMonth(), 2);
-    var lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    dp.changeMonth(firstDay,lastDay);
   });
 
 
@@ -322,7 +257,7 @@ $(document).ready(function(){
       url: "/addToRoster",
       type: "POST",
       dataType: "json",
-      data: { shift:shift,selection:selection,selection2:selection2,daterange:daterange },
+      data: { "shift":shift,"selection":selection,"selection2":selection2,"daterange":daterange,"__token": "{{ csrf_token() }}", },
       success: function(result){
 
         if(result.status == "Success"){

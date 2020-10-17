@@ -11,6 +11,7 @@ class RosterShifts extends Model
   protected $fillable = [
     'name',
     'description',
+    'day_start',
     'start_time',
     'shift_duration',
     'lunch_duration',

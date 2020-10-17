@@ -108,8 +108,6 @@
               <div class="row">
                 <div class="col">
                   <h5 class="card-title text-uppercase text-muted mb-0">Extras</h5><br/>
-                  <span class="h4 font-weight-bold mb-0">Casual Leave : </span>{{ $leavesSummary['casual_leaves'] }}<br/>
-                  <span class="h4 font-weight-bold mb-0">Annual Leave : </span>{{ $leavesSummary['annual_leaves'] }}<br/>
                   <span class="h4 font-weight-bold mb-0">Absent : </span>{{ $extraSummary['absent'] }}<br/>
                   <span class="h4 font-weight-bold mb-0">Sun/Holiday : </span>{{ $extraSummary['holiday'] }}<br/>
                   <span class="h4 font-weight-bold mb-0">Overtime : </span>{{ \App\Http\Controllers\HelperController::secondsToClock($extraSummary['overtime']) }}<br/>
@@ -146,7 +144,6 @@
               <h3 class="mb-0">{{ __('Employee Monthly Attendance Report') }}</h3>
             </div>
             <div class="col-4 text-right">
-              <a href="#" id="printBtn" class="btn btn-sm btn-primary printHide">Print</a>
               <a href="#" class="btn btn-sm btn-primary">Go Back</a>
             </div>
           </div>
@@ -245,19 +242,14 @@
 <script>
 $(document).ready( function () {
 
-    let dataTable = $('#reportTable').DataTable({
+    $('#reportTable').DataTable({
+      dom: 'Bftrip',
+      buttons: [
+        'print',
+        'excelHtml5'
+      ],
       "pageLength": 31, 
     });
-
-    $('#printBtn').click(function(){
-      dataTable.destroy();
-      $('#sidenav-main').remove();
-      $('#navbar-main').remove();
-      $('#cardsHeader').remove();
-      $('.footer').remove();
-      $('#mainContainer').addClass('printTime').removeClass('container-fluid');
-    });
-
 } );
 </script>
 @endpush

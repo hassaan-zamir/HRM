@@ -25,42 +25,56 @@ class RosterController extends Controller
     ]);
   }
 
-  public function rosterResources(){
-    $employees = Employees::all();
-    $departments = Department::all();
-
-    $returnArr = array();
-    foreach($departments as $department){
-      $departmentJson = array(
-        'name' => '',
-        'id' => '',
-        'expanded' => true,
-        'children' => array(),
-      );
-      $departmentJson['name'] = $department->name;
-      $departmentJson['id'] = 'd'.$department->id;
-      foreach($employees as $employee){
-        $employeeJson = array(
-          'name' => '',
-          'id' => '',
-        );
-        if($employee->department == $department->id){
-          $employeeJson['name'] = $employee->full_name;
-          $employeeJson['id'] = 'e'.$employee->id;
-          array_push($departmentJson['children'] , $employeeJson);
-        }
-      }
-      array_push($returnArr,$departmentJson);
-    }
-    return json_encode($returnArr);
-  }
 
 
   public function loadRoster(Request $request){
 
+
+    if($request->date){
+      if($request->date == 1){
+        $date = Carbon::now();
+      }else{
+        $date = Carbon::parse($request->date);
+      }
+
+
+      $data = array();
+
+      $employees = Employees::all();
+      foreach($employees as $employee){
+        $row = array();
+        $row['employee'] = $employee;
+        $row['dates'] = array();
+        $start = $date->copy()->startOfMonth();
+        $end = $date->copy()->endOfmonth();
+        while($start <= $end){
+
+          $roster = Roster::where('employee_id',$employee->id)->where('start','<=',$start)->where('end','>=',$start)->latest()->get();
+          if(count($roster) > 0){
+            $roster = $roster[0];
+            $shift = RosterShifts::find($roster->roster_shift_id)->name;
+
+          }else{
+            $shift = 'N/A';
+          }
+          array_push($row['dates'],['date' => $start->day , 'day' => HelperController::dayOfWeekShort($start->dayOfWeek), 'shift' => $shift]);
+          $start->addDays(1);
+        }
+        array_push($data,$row);
+      }
+      return view('roster.view')->with([
+        'data' => $data,
+      ]);
+
+    }else{
+      return '<h2 style="color:red;">Unexpected Error Occured While Loading Roster</h2>';
+    }
+
+
     $roster = Roster::join('roster_shifts','roster.roster_shift_id','=','roster_shifts.id')->
     select('roster.id','roster.start','roster.end','roster_shifts.name as text','roster_shifts.description','roster.employee_id','roster.dep_id')->get();
 
+    dd($roster);
     $returnArr = [];
     //foreach roster entry
     foreach ($roster as $item) {
@@ -132,6 +146,7 @@ class RosterController extends Controller
       'message' => 'Roster could not be saved due to unkwon reasons! try again later',
     ];
 
+
     if(strpos($request->daterange," - ") == false){
       $returnArr['message'] = 'Invalid Date Range Format';
     }else{
@@ -155,6 +170,7 @@ class RosterController extends Controller
         $findSimilar = RosterShifts::where([
           ['name','=',$shift->name],
           ['description','=',$shift->description],
+          ['day_start','=',$shift->day_start],
           ['start_time','=',$shift->start_time],
           ['shift_duration','=',$shift->shift_duration],
           ['lunch_duration','=',$shift->lunch_duration],
@@ -173,9 +189,11 @@ class RosterController extends Controller
           if( count($findSimilar) > 0){
             $roster_shift_id = $findSimilar[0]->id;
           }else{
+
             $roster_shift_id = RosterShifts::create([
               'name' => $shift->name,
               'description' => $shift->description,
+              'day_start' => $shift->day_start,
               'start_time' => $shift->start_time,
               'shift_duration' => $shift->shift_duration,
               'lunch_duration' => $shift->lunch_duration,
@@ -194,25 +212,38 @@ class RosterController extends Controller
           }
 
 
-          $dep_ids = implode(',',$request->selection);
-          $employee_ids = implode(',',$request->selection2);
-          $req = [
-            'start' => Carbon::parse($daterange[0]),
-            'end' => Carbon::parse($daterange[1]),
-            'roster_shift_id' => $roster_shift_id,
-            'dep_id' => $dep_ids,
-            'employee_id' => $employee_ids,
-            'user_id' => \Auth::id(),
-          ];
+          if(count($request->selection2) > 0){
+            $employee_ids = $request->selection2;
+            if($employee_ids[0] == "0" && count($request->selection) > 0 ){//if all Employees
+              $dep_ids = $request->selection;
+              if($dep_ids[0] == "0"){ // if all department
+                $dep_ids = Department::all()->pluck('id')->toArray();
+              }
+              $employee_ids = Employees::whereIn('department',$dep_ids)->pluck('id')->toArray();
+            }
 
 
-          if(Roster::create($req)){
-            $returnArr['status'] = 'Success';
-            $returnArr['message'] = 'Roster Saved Successfully!';
-          }else{
-            $returnArr['status'] = 'Faliure';
-            $returnArr['message'] = 'Roster Could Not be Saved due to unkown reasons! Try again later.';
+            foreach ($employee_ids as $employee_id){
+
+              $req = [
+                'start' => Carbon::parse($daterange[0]),
+                'end' => Carbon::parse($daterange[1]),
+                'roster_shift_id' => $roster_shift_id,
+                'employee_id' => $employee_id,
+                'user_id' => \Auth::id(),
+              ];
+
+              if(Roster::create($req)){
+                $returnArr['status'] = 'Success';
+                $returnArr['message'] = 'Roster Saved Successfully!';
+              }else{
+                $returnArr['status'] = 'Faliure';
+                $returnArr['message'] = 'Roster Could Not be Saved due to unkown reasons! Try again later.';
+              }
+
+            }
           }
+
         }
 
       }

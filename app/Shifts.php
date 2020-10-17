@@ -12,6 +12,7 @@ class Shifts extends Model
     'name',
     'user_id',
     'description',
+    'day_start',
     'start_time',
     'shift_duration',
     'lunch_duration',

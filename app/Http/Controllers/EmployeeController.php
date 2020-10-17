@@ -21,11 +21,19 @@ class EmployeeController extends Controller
 
   public function index(Employees $model)
   {
-    $employees = Employees::all();
+    $employees = Employees::orderBy('machine_id')->get();
+
     $i = 0;
     foreach ($employees as $emp) {
 
-      ($employees[$i])->department = (Department::where('id','=',$emp->department)->get()->toArray())[0]['name'];
+      //($employees[$i])->department = (Department::where('id','=',$emp->department)->get()->toArray())[0]['name'];
+      $dep = Department::where('id','=',$emp->department)->get();
+      if(count($dep) > 0){
+
+        $employees[$i]->department = $dep->toArray()[0]['name'];
+      }else{
+        $employees[$i]->department = 'N/A';
+      }
 
       $i++;
     }

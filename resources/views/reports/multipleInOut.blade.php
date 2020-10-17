@@ -54,7 +54,7 @@
               <tr>
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $row['full_name'] }}</td>
-                <td><span style="color:darkblue;">{{ \App\Http\Controllers\HelperController::carbonToTime($row['entries'][0]) }}</span></td>
+                <td><span style="color:darkblue;">{{ \App\Http\Controllers\HelperController::carbonToTime($row['entries'][count($row['entries'])-1]) }}</span></td>
                 <td>
                   @if(count($row['entries']) > 2)
                   @for($i=1;$i<(count($row['entries'])-1);$i++)
@@ -66,7 +66,7 @@
                 </td>
                 <td>
                   @if(count($row['entries']) > 1)
-                  <span style="color:darkblue;">{{ \App\Http\Controllers\HelperController::carbonToTime($row['entries'][count($row['entries'])-1]) }}</span>
+                  <span style="color:darkblue;">{{ \App\Http\Controllers\HelperController::carbonToTime($row['entries'][0]) }}</span>
                   @else
                   N/A
                   @endif

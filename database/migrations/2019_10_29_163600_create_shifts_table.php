@@ -18,6 +18,7 @@ class CreateShiftsTable extends Migration
             $table->string('name');
             $table->integer('user_id');
             $table->text('description');
+            $table->time('day_start');
             $table->time('start_time');
             $table->float('shift_duration')->default(8);
             $table->float('lunch_duration')->default(0);

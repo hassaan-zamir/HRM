@@ -15,7 +15,7 @@ class CreatePublicHolidaysTable extends Migration
     {
         Schema::create('public_holidays', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->timestamp('date')->nullable();
+            $table->date('date')->nullable();
             $table->string('title');
             $table->text('description')->nullable();
             $table->timestamps();

@@ -40,6 +40,12 @@ class ShiftRequest extends FormRequest
       'description' => [
         'required','min:3',
       ],
+      'day_start_hr' => [
+        'required','integer','between:1,24',
+      ],
+      'day_start_min' => [
+        'required','integer','between:0,59',
+      ],
       'start_time_hr' => [
         'required','integer','between:1,24',
       ],

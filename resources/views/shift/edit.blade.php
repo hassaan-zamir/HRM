@@ -26,7 +26,7 @@
             <div class="alert alert-danger" role="alert">
               <ul>
                 @foreach($errors->all() as $error)
-                  <li>{{ $error }}</li>
+                <li>{{ $error }}</li>
                 @endforeach
               </ul>
             </div>
@@ -46,6 +46,35 @@
                 <textarea name="description" id="input-description" class="form-control form-control-alternative{{ $errors->has('description') ? ' is-invalid' : '' }}" placeholder="Enter Description">{{ old('description',$shift->description) }}</textarea>
               </div>
 
+
+              <div class="form-group{{ $errors->has('day_start_hr','day_start_min') ? ' has-danger' : '' }}">
+                <label class="form-control-label" for="input-start_time">{{ __('Shift Day Starting Time') }}</label>
+                <div class="row">
+                  <div class="col-md-4">
+                    <select name="day_start_hr" class="form-control form-control-alternative{{ $errors->has('day_start_hr') ? ' is-invalid' : '' }}">
+                      @for($i=1;$i<=24;$i++)
+                      <option value="{{ $i }}" {{ ($i==date('H',strtotime($shift->day_start)) )?'selected="selected"':'' }}>{{ $i }}</option>
+                      @endfor
+                    </select>
+                  </div>
+                  <span style="margin-top:8px;">:</span>
+                  <div class="col-md-6">
+                    <select name="day_start_min" class="form-control form-control-alternative{{ $errors->has('day_start_min') ? ' is-invalid' : '' }}">
+                      @for($i=0;$i<=60;$i++)
+                      <option value="{{ $i }}" {{ ( $i==(date('i',strtotime($shift->day_start))) )?'selected="selected"':''}} >
+                        @if($i < 10)
+                        0{{ $i }}
+                        @else
+                        {{ $i }}
+                        @endif
+
+                      </option>
+                      @endfor
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div class="form-group{{ $errors->has('start_time_hr','start_time_min') ? ' has-danger' : '' }}">
                 <label class="form-control-label" for="input-start_time">{{ __('Shift Starting Time') }}</label>
                 <div class="row">
@@ -63,7 +92,8 @@
                       <option value="{{ $i }}" {{ ($i==date('i',strtotime($shift->start_time)) )?'selected="selected"':''}} >
                         @if($i < 10)
                         0{{ $i }}
-                        @else{{ ($i==date('i',strtotime($shift->start_time)) )?'selected="selected"':''}}
+                        @else
+                        {{ ($i==date('i',strtotime($shift->start_time)) )?'selected="selected"':''}}
                         {{ $i }}
                         @endif
 
@@ -132,7 +162,7 @@
                   </div>
                 </div>
                 <div class="row furtherOptions" style="display:none;">
-                   <input type="radio" name="sunday_check" value="0" style="display:none;" checked="checked"/>
+                  <input type="radio" name="sunday_check" value="0" style="display:none;" checked="checked"/>
                   <div class="col-md-3">
                     <input type="radio" id="sunday_check_op1" name="sunday_check" value="1" /> Holiday with same timings
                   </div>
@@ -285,14 +315,14 @@ $(document).ready(function(){
 
   @if($shift->sunday_check>0 && $shift->sunday_check<3)
 
-    $("#sunday_check_parent").prop("checked", true);
-    parentCheckChanged();
-    @if($shift->sunday_check == 1)
-      $('#sunday_check_op1').prop("checked",true);
-    @else
-      $('#sunday_check_op2').prop("checked",true);
-    @endif
-    checkChanged();
+  $("#sunday_check_parent").prop("checked", true);
+  parentCheckChanged();
+  @if($shift->sunday_check == 1)
+  $('#sunday_check_op1').prop("checked",true);
+  @else
+  $('#sunday_check_op2').prop("checked",true);
+  @endif
+  checkChanged();
   @endif
 
 });

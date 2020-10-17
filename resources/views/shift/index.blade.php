@@ -36,6 +36,7 @@
                 <th scope="col">Shift Span</th>
                 <th scope="col">{{ __('Shift Name') }}</th>
                 <th scope="col">{{ __('Description') }}</th>
+                <th scope="col">{{ __('Day Cycle') }}</th>
                 <th scope="col">{{ __('Start Time') }}</th>
                 <th scope="col">{{ __('Late After') }}</th>
                 <th scope="col">{{ __('Shift End') }}</th>
@@ -56,6 +57,7 @@
                 <td>@if($shift->sunday_check == 0) Mon-Sun @elseif($shift->sunday_check == 1) Mon-Sat + Sun(Overtime) @else Mon-Sat @endif</td>
                 <td @if($shift->sunday_check == 2) rowspan="2" @endif>{{ $shift->name }}</td>
                 <td @if($shift->sunday_check == 2) rowspan="2" @endif>{{ $shift->description }}</td>
+                <td @if($shift->sunday_check == 2) rowspan="2" @endif>{{ $shift->day_start }} - {{ \Carbon\Carbon::parse($shift->day_start)->addHours(23)->addMinutes(59)->format('H:i:s') }}</td>
                 <td>{{ $shift->start_time }}</td>
                 <td>{{ \Carbon\Carbon::parse($shift->start_time)->addHours($shift->late_time)->addMinutes(60*($shift->late_time - floor($shift->late_time)))->toTimeString() }}</td>
                 <td>{{ \Carbon\Carbon::parse($shift->start_time)->addHours($shift->shift_duration)->addMinutes(60*($shift->shift_duration - floor($shift->shift_duration)))->toTimeString() }}</td>

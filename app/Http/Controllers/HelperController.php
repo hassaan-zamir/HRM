@@ -29,6 +29,24 @@ class HelperController extends Controller
         return 'Saturday';
       }
     }
+
+    public static function dayOfWeekShort($day){
+      if($day == 0){
+        return 'Sun';
+      }else if($day == 1){
+        return 'Mon';
+      }else if($day == 2){
+        return 'Tue';
+      }else if($day == 3){
+        return 'Wed';
+      }else if($day == 4){
+        return 'Thu';
+      }else if($day == 5){
+        return 'Fri';
+      }else if($day == 6){
+        return 'Sat';
+      }
+    }
     public static function neverEmpty($str){
       if($str == ''){
         return ' - ';
@@ -54,15 +72,10 @@ class HelperController extends Controller
       }
       return $date.$splitter.$day;
     }
-    public static function secondsToClock($seconds,$seperator=':',$emptyReturn=0){
+    public static function secondsToClock($seconds,$seperator=':'){
 
       if($seconds == ''){
-        if($emptyReturn == 0){
-          return '';
-        }else{
-          return 0;
-        }
-        
+        return '';
       }
       $hours = floor($seconds/60/60);
       $minutes = floor($seconds/60%60);
@@ -104,6 +117,9 @@ class HelperController extends Controller
 
     public static function carbonToTime($timestamp,$seperator=':'){
 
+      if($timestamp === null){
+        return ' ';
+      }
       $timestamp = Carbon::parse($timestamp);
 
       $dateTimeString = $timestamp->toDateTimeString();
